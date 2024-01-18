@@ -34,11 +34,12 @@ $context = stream_context_create($options);
 // Init variables
 $array = [];
 $count = 0;
+$paginationLimit = 10000; // this value should be equal to or higher than the total number of submissions
 
 for ($i = 0; $i <= 10000; $i = $i + 250) {
     
     // Construct the URL
-    $url = "https://nsight.jotform.com/API/form/{$data['formId']}/submissions?apiKey={$data['apiKey']}&limit=250&offset=$i";
+    $url = "https://api.jotform.com/form/{$data['formId']}/submissions?apiKey={$data['apiKey']}&limit=250&offset=$i";
 
     echo "calling submissions up to $i\n {$url}";
 
@@ -55,16 +56,19 @@ for ($i = 0; $i <= 10000; $i = $i + 250) {
             // create date/time based on the submission date
             $dateTime = new DateTime($submission->created_at);
 
+            // Folder & file name variables -> get the question ID number to add between the brackets
+            $parentFolder = $submission->answers->{000}->answer;
+            $childFolder = $submission->answers->{000}->answer;
+            $name = $submission->answers->{000}->answer;
+
             // Cleaning the data to avoid problem creating DIR
-            $clinic = isset($submission->answers->{135}->answer) ? strtolower(trim(str_replace(['.', ':', "/", ";"], '', $submission->answers->{135}->answer))) : '';
-            $other = isset($submission->answers->{174}->answer) ? strtolower(trim(str_replace(['.', ':', "/", ";"], '', $submission->answers->{174}->answer))) : '';
-            $name = isset($submission->answers->{177}->answer) ? strtolower(trim(str_replace(['.', ':', "/", ";"], '',($submission->answers->{177}->answer)))) : '';
+            $parentFolder = isset($parentFolder) ? strtolower(trim(str_replace(['.', ':', "/", ";"], '', $parentFolder))) : '';
+            $name = isset($childFolder) ? strtolower(trim(str_replace(['.', ':', "/", ";"], '',($childFolder)))) : '';
 
             // Create object
             $submissionData = array(
                 'id' => $submission->id,
-                'clinic' => $clinic,
-                'other' => $other,
+                'parentFolder' => $parentFolder,
                 'name' => $name,
                 'monthAndYear' => $dateTime->format("m-Y"),
                 'formattedDate' => $dateTime->format("Y-m-d"),
@@ -92,14 +96,8 @@ foreach($array as $submission) {
     $numberOfDownloadedFiles++;
     
     $url = "https://nsight.jotform.com/server.php?action=getSubmissionPDF&sid={$submission['id']}&formID={$data['formId']}&apiKey={$data['apiKey']}";
-
-    if(isset($submission['other']) && !empty($submission['other'] && $submission['clinic'] == 'other')) {
-        $clinic = $submission['other'];
-    } else {
-        $clinic = $submission['clinic'];
-    }
     
-    $fileName = "{$submission['id']}_{$submission['formattedDate']}_{$clinic}_{$submission['name']}.pdf";
+    $fileName = "{$submission['id']}_{$submission['formattedDate']}_{$submission['parentFolder']}_{$submission['name']}.pdf";
     $current_time = date("Y-m-d H:i:s");
 
     echo "{$numberOfDownloadedFiles}/{$numberOfSubmissions} Download started at {$current_time} \nFilename {$fileName} \n";
@@ -108,13 +106,13 @@ foreach($array as $submission) {
     $baseDirectory = __DIR__ .  DIRECTORY_SEPARATOR . "pdf" .  DIRECTORY_SEPARATOR;
 
     // Verify existence and create folder 'clinic'
-    $clinicDirectory = $baseDirectory . $clinic . DIRECTORY_SEPARATOR;
-    if (!file_exists($clinicDirectory)) {
-        mkdir($clinicDirectory, 0777, true);
+    $parentFolderDirectory = $baseDirectory . $submission['parentFolder'] . DIRECTORY_SEPARATOR;
+    if (!file_exists($parentFolderDirectory)) {
+        mkdir($parentFolderDirectory, 0777, true);
     }
 
     // Verify existence and create folder 'monthAndYear' inside the folder 'clinic'
-    $monthAndYearDirectory = $clinicDirectory . $submission['monthAndYear'] . DIRECTORY_SEPARATOR;
+    $monthAndYearDirectory = $parentFolderDirectory . $submission['monthAndYear'] . DIRECTORY_SEPARATOR;
     if (!file_exists($monthAndYearDirectory)) {
         mkdir($monthAndYearDirectory, 0777, true);
     }
